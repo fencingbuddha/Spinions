@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_fortune_wheel/flutter_fortune_wheel.dart';
 import 'coin_flip_screen.dart';
 import '../widgets/result_dialog.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,21 +21,41 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _selectedPersonality = 'Sarcastic';
 
-  final Stream<FortuneItem> _selected =
-      Stream.value(FortuneItem(child: Text('')));
+  late StreamController<int> _controller;
 
   int _currentSelectedIndex = 0;
 
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = StreamController<int>();
+  }
+
   void _addChoice() {
-    final text = _choiceController.text.trim();
+    final rawText = _choiceController.text.trim();
 
-    if (text.isNotEmpty) {
-      setState(() {
-        _choices.add(text);
+    if (rawText.isEmpty) return;
 
-        _choiceController.clear();
-      });
-    }
+    // Split by comma and trim each item
+
+    final newItems = rawText
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+
+    setState(() {
+      // Only add items not already in the list
+
+      for (final item in newItems) {
+        if (!_choices.contains(item)) {
+          _choices.add(item);
+        }
+      }
+
+      _choiceController.clear();
+    });
   }
 
   String _getPersonalityResponse(String choice) {
@@ -71,14 +92,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _spinWheel() {
-    if (_choices.isEmpty) return;
+    if (_choices.length < 2) return;
 
-    setState(() {
-      _currentSelectedIndex = Random().nextInt(_choices.length);
-    });
+    final index = Random().nextInt(_choices.length);
+
+    _controller.add(index); // triggers the spin animation
 
     Future.delayed(const Duration(seconds: 2), () {
-      final result = _choices[_currentSelectedIndex];
+      final result = _choices[index];
 
       final quote = _getPersonalityResponse(result);
 
@@ -90,6 +111,13 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     });
+  }
+
+  @override
+  void dispose() {
+    _controller.close();
+
+    super.dispose();
   }
 
   @override
@@ -109,7 +137,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: TextField(
                     controller: _choiceController,
                     decoration: const InputDecoration(
-                      labelText: 'Add a choice',
+                      labelText: 'Add a choice (or comma-seperated list)',
+                      hintText: 'e.g. Tacos, Pizza, Sushi',
                       border: OutlineInputBorder(),
                     ),
                     onSubmitted: (_) => _addChoice(),
@@ -140,18 +169,23 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             const SizedBox(height: 16),
+            const SizedBox(height: 24),
             if (_choices.length >= 2)
               Expanded(
                 child: FortuneWheel(
-                  selected: Stream.value(_currentSelectedIndex),
-                  items: [
-                    for (var choice in _choices)
-                      FortuneItem(child: Text(choice)),
-                  ],
-                  onAnimationEnd: _spinWheel,
+                  selected: _controller.stream,
+                  items: _choices
+                      .map((choice) => FortuneItem(child: Text(choice)))
+                      .toList(),
+                  onAnimationEnd: () {},
                 ),
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: Text("Add at least 2 choices to spin the wheel."),
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _choices.length >= 2 ? _spinWheel : null,
               icon: const Icon(Icons.casino),
