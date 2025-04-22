@@ -140,7 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             const SizedBox(height: 16),
-            if (_choices.isNotEmpty)
+            if (_choices.length >= 2)
               Expanded(
                 child: FortuneWheel(
                   selected: Stream.value(_currentSelectedIndex),
