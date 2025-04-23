@@ -1,9 +1,18 @@
 import 'dart:math';
-import 'package:flutter/material.dart';
-import 'package:flutter_fortune_wheel/flutter_fortune_wheel.dart';
-import 'coin_flip_screen.dart';
-import '../widgets/result_dialog.dart';
+
 import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import 'package:flutter_fortune_wheel/flutter_fortune_wheel.dart';
+
+import '../widgets/result_dialog.dart';
+
+import '../widgets/personality_selector.dart';
+
+import '../utils/personality_quotes.dart';
+
+import 'coin_flip_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,7 +26,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final TextEditingController _choiceController = TextEditingController();
 
-  final List<String> _personalityModes = ['Sarcastic', 'Motivational', 'Chill'];
+  final List<String> _personalityModes = [
+    'Sarcastic',
+    'Motivational',
+    'Chill',
+    'Wise',
+    'Silly',
+    'Gothic',
+    'Chaotic',
+  ];
 
   String _selectedPersonality = 'Sarcastic';
 
@@ -32,12 +49,17 @@ class _HomeScreenState extends State<HomeScreen> {
     _controller = StreamController<int>();
   }
 
+  @override
+  void dispose() {
+    _controller.close();
+
+    super.dispose();
+  }
+
   void _addChoice() {
     final rawText = _choiceController.text.trim();
 
     if (rawText.isEmpty) return;
-
-    // Split by comma and trim each item
 
     final newItems = rawText
         .split(',')
@@ -46,8 +68,6 @@ class _HomeScreenState extends State<HomeScreen> {
         .toSet();
 
     setState(() {
-      // Only add items not already in the list
-
       for (final item in newItems) {
         if (!_choices.contains(item)) {
           _choices.add(item);
@@ -58,50 +78,18 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  String _getPersonalityResponse(String choice) {
-    final sarcastic = [
-      "Wow... $choice again? Original.",
-      "$choice. Bold move. Let's see if it pays off.",
-      "$choice? You sure? Fine, I guess."
-    ];
-
-    final motivational = [
-      "$choice is your destiny!",
-      "You're built for $choice!",
-      "Rise and choose $choice today!"
-    ];
-
-    final chill = [
-      "Sure man... $choice works.",
-      "$choice feels nice and easy.",
-      "Let the vibes guide you to $choice."
-    ];
-
-    final rand = Random();
-
-    switch (_selectedPersonality) {
-      case 'Motivational':
-        return motivational[rand.nextInt(motivational.length)];
-
-      case 'Chill':
-        return chill[rand.nextInt(chill.length)];
-
-      default:
-        return sarcastic[rand.nextInt(sarcastic.length)];
-    }
-  }
-
   void _spinWheel() {
     if (_choices.length < 2) return;
 
     final index = Random().nextInt(_choices.length);
 
-    _controller.add(index); // triggers the spin animation
+    _controller.add(index);
 
     Future.delayed(const Duration(seconds: 2), () {
       final result = _choices[index];
 
-      final quote = _getPersonalityResponse(result);
+      final quote =
+          PersonalityQuotes.getRandomQuote(_selectedPersonality, result);
 
       showDialog(
         context: context,
@@ -111,13 +99,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       );
     });
-  }
-
-  @override
-  void dispose() {
-    _controller.close();
-
-    super.dispose();
   }
 
   @override
@@ -137,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: TextField(
                     controller: _choiceController,
                     decoration: const InputDecoration(
-                      labelText: 'Add a choice (or comma-seperated list)',
+                      labelText: 'Add a choice (or comma-separated list)',
                       hintText: 'e.g. Tacos, Pizza, Sushi',
                       border: OutlineInputBorder(),
                     ),
@@ -152,23 +133,15 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            DropdownButton<String>(
-              value: _selectedPersonality,
-              items: _personalityModes.map((mode) {
-                return DropdownMenuItem<String>(
-                  value: mode,
-                  child: Text(mode),
-                );
-              }).toList(),
+            PersonalitySelector(
+              selected: _selectedPersonality,
+              options: _personalityModes,
               onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedPersonality = value;
-                  });
-                }
+                setState(() {
+                  _selectedPersonality = value;
+                });
               },
             ),
-            const SizedBox(height: 16),
             const SizedBox(height: 24),
             if (_choices.length >= 2)
               Expanded(
